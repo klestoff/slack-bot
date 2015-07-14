@@ -94,6 +94,8 @@ func postForm(method string, request jsonMap) (result jsonMap, err error) {
 }
 
 func rtmStart(token string) (result string, err error) {
+	log.Println("Authorize...")
+
 	response, err := postForm("rtm.start", jsonMap{"token": interface{}(token)})
 	if err != nil {
 		return
@@ -107,31 +109,26 @@ func rtmStart(token string) (result string, err error) {
 	return
 }
 
-func asyncRead(socket *websocket.Conn, queue chan string, quit chan bool) {
-	var b []byte = make([]byte, 1024)
+func asyncRead(socket *websocket.Conn, queue chan jsonMap, quit chan bool) {
+	log.Println("Listen...")
+
+	var data jsonMap
 
 	for {
-		len, err := socket.Read(b)
+		err := websocket.JSON.Receive(socket, &data)
 
 		if err == io.EOF {
 			quit <- true
 			return
 		} else if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+		} else {
+			queue <- data
 		}
-
-		queue <- string(b[:len])
 	}
 }
 
-func asyncAction(message string, queue chan string) {
-	var response jsonMap
-
-	err := json.Unmarshal([]byte(message), &response)
-	if err != nil {
-		log.Println(err)
-	}
-
+func asyncAction(response jsonMap, queue chan jsonMap) {
 	switch response["type"].(string) {
 	case "hello":
 		fmt.Println("Hello!")
@@ -141,7 +138,7 @@ func asyncAction(message string, queue chan string) {
 			"say:", response["text"].(string),
 			"in channel:", response["channel"].(string))
 	default:
-		fmt.Println("Unknown action happens:", message)
+		fmt.Println("Unknown action happens:", response["type"].(string))
 	}
 }
 
@@ -158,34 +155,35 @@ func main() {
 
 	token := os.Args[1]
 	if url, err := rtmStart(token); err == nil {
+		log.Println("Trying to connect webocket...")
+
 		socket, err := websocket.Dial(url, "", "http://localhost/")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		var incomingQueue, outgoingQueue chan string = make(chan string), make(chan string)
+		var incomingQueue, outgoingQueue chan jsonMap = make(chan jsonMap), make(chan jsonMap)
 		var quit chan bool = make(chan bool)
 
 		go asyncRead(socket, incomingQueue, quit)
 
-
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
 			for range ticker.C {
-				outgoingQueue <- "{\"type\":\"ping\"}"
+				outgoingQueue <- jsonMap{"type": "ping"}
 			}
 		}()
 
 		for {
 			select {
-			case str := <-incomingQueue:
-				go asyncAction(str, outgoingQueue)
-			case str := <-outgoingQueue:
-				log.Println("Send message:", str)
-				_, err := socket.Write([]byte(str))
+			case data := <-incomingQueue:
+				go asyncAction(data, outgoingQueue)
+			case data := <-outgoingQueue:
+				log.Println("Send message:", data)
+				err = websocket.JSON.Send(socket, data)
 				if (err != nil) {
-					log.Println("Message send failed")
-					outgoingQueue <- str
+					log.Println("Message send failed: ", err)
+					outgoingQueue <- data
 				}
 			case <-quit:
 				fmt.Println("Quit")
