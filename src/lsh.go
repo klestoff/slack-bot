@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/websocket"
 	"io"
 	"os"
+	"time"
 )
 
 type jsonMap map[string]interface{}
@@ -106,7 +107,7 @@ func rtmStart(token string) (result string, err error) {
 	return
 }
 
-func asyncRead(socket *websocket.Conn, messages chan string, quit chan bool) {
+func asyncRead(socket *websocket.Conn, queue chan string, quit chan bool) {
 	var b []byte = make([]byte, 1024)
 
 	for {
@@ -119,12 +120,12 @@ func asyncRead(socket *websocket.Conn, messages chan string, quit chan bool) {
 			log.Fatal(err)
 		}
 
-		messages <- string(b[:len])
+		queue <- string(b[:len])
 	}
 }
 
-func asyncAction(message string) {
-	var response jsonMap;
+func asyncAction(message string, queue chan string) {
+	var response jsonMap
 
 	err := json.Unmarshal([]byte(message), &response)
 	if err != nil {
@@ -135,7 +136,10 @@ func asyncAction(message string) {
 	case "hello":
 		fmt.Println("Hello!")
 	case "message":
-		fmt.Println(response["user"].(string), "say:", response["text"].(string))
+		fmt.Println(
+			response["user"].(string),
+			"say:", response["text"].(string),
+			"in channel:", response["channel"].(string))
 	default:
 		fmt.Println("Unknown action happens:", message)
 	}
@@ -159,16 +163,33 @@ func main() {
 			log.Fatal(err)
 		}
 
-		var messages chan string = make(chan string)
+		var incomingQueue, outgoingQueue chan string = make(chan string), make(chan string)
 		var quit chan bool = make(chan bool)
 
-		go asyncRead(socket, messages, quit)
+		go asyncRead(socket, incomingQueue, quit)
+
+
+		ticker := time.NewTicker(10 * time.Second)
+		go func() {
+			for range ticker.C {
+				outgoingQueue <- "{\"type\":\"ping\"}"
+			}
+		}()
+
 		for {
 			select {
-			case str := <-messages:
-				go asyncAction(str)
+			case str := <-incomingQueue:
+				go asyncAction(str, outgoingQueue)
+			case str := <-outgoingQueue:
+				log.Println("Send message:", str)
+				_, err := socket.Write([]byte(str))
+				if (err != nil) {
+					log.Println("Message send failed")
+					outgoingQueue <- str
+				}
 			case <-quit:
 				fmt.Println("Quit")
+				ticker.Stop()
 				socket.Close()
 				return
 			}
