@@ -92,18 +92,15 @@ func postForm(method string, request jsonMap) (result jsonMap, err error) {
 	return
 }
 
-func rtmStart(token string) (result string, err error) {
+func rtmStart(token string) (response jsonMap, err error) {
 	log.Println("Authorize...")
 
-	response, err := postForm("rtm.start", jsonMap{"token": interface{}(token)})
+	response, err = postForm("rtm.start", jsonMap{"token": interface{}(token)})
 	if err != nil {
 		return
 	}
 
-	if response["ok"].(bool) {
-		log.Println("Response:", response)
-		result = response["url"].(string)
-	} else {
+	if !response["ok"].(bool) {
 		err = errors.New(response["error"].(string))
 	}
 	return
@@ -150,10 +147,10 @@ func main() {
 		return
 	}
 
-	if url, err := rtmStart(*tokenPtr); err == nil {
+	if authData, err := rtmStart(*tokenPtr); err == nil {
 		log.Println("Trying to connect webocket...")
 
-		socket, err := websocket.Dial(url, "", "http://localhost/")
+		socket, err := websocket.Dial(authData["url"].(string), "", "http://localhost/")
 		if err != nil {
 			log.Fatal(err)
 		}
