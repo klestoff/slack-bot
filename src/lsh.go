@@ -15,14 +15,12 @@ import (
 )
 
 type jsonMap map[string]interface{}
-
 type identifier string
-
 type channel struct {
 	id			string
 	name   		identifier
 	creator	 	identifier
-	created 	float64
+	created 	time.Time
 	is_channel	bool
 	is_archived bool
 	is_general	bool
@@ -37,8 +35,8 @@ type baseAnswer struct {
 
 type authAnswer struct {
 	baseAnswer
-	latest_event_ts	float64
-	channels		string
+	latest_event_ts	time.Time
+	channels		[]channel
 	ims				string
 	cache_version	string
 	bots			string
@@ -46,7 +44,7 @@ type authAnswer struct {
 	self			string
 	groups			string
 	users			string
-	cache_ts		float64
+	cache_ts		time.Time
 	url 			string
 }
 
