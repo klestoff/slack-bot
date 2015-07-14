@@ -102,6 +102,7 @@ func rtmStart(token string) (result string, err error) {
 	}
 
 	if response["ok"].(bool) {
+		log.Println("Response:", response)
 		result = response["url"].(string)
 	} else {
 		err = errors.New(response["error"].(string))
@@ -138,8 +139,6 @@ func asyncAction(response jsonMap, queue chan jsonMap) {
 			response["user"].(string),
 			"say:", response["text"].(string),
 			"in channel:", response["channel"].(string))
-	default:
-		fmt.Println("Unknown action happens:", response["type"].(string))
 	}
 }
 
