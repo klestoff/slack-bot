@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"bytes"
-	"net/http"
-	"encoding/json"
-	"net/url"
-	"errors"
-	"golang.org/x/net/websocket"
 	"io"
 	"os"
+	"fmt"
+	"log"
 	"time"
+	"bytes"
+	"errors"
+	"net/url"
+	"net/http"
+	"encoding/json"
+	"golang.org/x/net/websocket"
 )
 
 type jsonMap map[string]interface{}
@@ -123,6 +123,7 @@ func asyncRead(socket *websocket.Conn, queue chan jsonMap, quit chan bool) {
 		} else if err != nil {
 			log.Println(err)
 		} else {
+			log.Println("Recieved data:", data)
 			queue <- data
 		}
 	}
