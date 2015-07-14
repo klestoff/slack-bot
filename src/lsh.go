@@ -145,7 +145,7 @@ func main() {
 	tokenPtr := flag.String("token", DUMMY_API_KEY, "Slack Bot API Token")
 	flag.Parse()
 
-	if (*tokenPtr == DUMMY_API_KEY) {
+	if *tokenPtr == DUMMY_API_KEY {
 		flag.Usage()
 		return
 	}
@@ -177,7 +177,7 @@ func main() {
 			case data := <-outgoingQueue:
 				log.Println("Send message:", data)
 				err = websocket.JSON.Send(socket, data)
-				if (err != nil) {
+				if err != nil {
 					log.Println("Message send failed: ", err)
 					outgoingQueue <- data
 				}
