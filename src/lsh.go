@@ -2,9 +2,9 @@ package main
 
 import (
 	"io"
-	"os"
 	"fmt"
 	"log"
+	"flag"
 	"time"
 	"bytes"
 	"errors"
@@ -51,6 +51,7 @@ type authAnswer struct {
 }
 
 const SLACK_API = "https://slack.com/api/%v"
+const DUMMY_API_KEY = "xxxx-0123456789-AaAA0AaaaAAa0aAAAaaA0aAa"
 
 func decodeResponse(response *http.Response) (result jsonMap, err error) {
 	if response.StatusCode != 200 {
@@ -142,19 +143,16 @@ func asyncAction(response jsonMap, queue chan jsonMap) {
 	}
 }
 
-func usage() {
-	fmt.Println("Usage: lsh <slack-api-token>")
-	fmt.Println()
-}
-
 func main() {
-	if len(os.Args) != 2 {
-		usage()
+	tokenPtr := flag.String("token", DUMMY_API_KEY, "Slack Bot API Token")
+	flag.Parse()
+
+	if (*tokenPtr == DUMMY_API_KEY) {
+		flag.Usage()
 		return
 	}
 
-	token := os.Args[1]
-	if url, err := rtmStart(token); err == nil {
+	if url, err := rtmStart(*tokenPtr); err == nil {
 		log.Println("Trying to connect webocket...")
 
 		socket, err := websocket.Dial(url, "", "http://localhost/")
